@@ -9,6 +9,12 @@ function readVelocityIC(file)
 	return reshape(vel, N, N, 2), Int((N - 1)/2)
 end
 
+function readVorticityFreqIC(file)
+	qhat = readdlm(file, ',', Float64)
+	N = Int( 1/2 * (-1 + sqrt(1 + 8*length(qhat))))
+	return qhat, Int((N-1)/2)
+end
+
 # Computes curl of 2d vector field using central differences
 function curl(u)
 	N = size(u)[1]
@@ -19,6 +25,40 @@ function curl(u)
 	du1_dy = (circshift(u1, (0, 1)) - circshift(u1, (0, -1)))/(2*delta)
 	du2_dx = (circshift(u2, (1, 0)) - circshift(u2, (-1, 0)))/(2*delta)
 	return du1_dy - du2_dx
+end
+
+# Computes Biot-Savart law of a set of vorticity fourier coefs
+# Slow!!! But there is an improvement coming soon
+# 1. Order of loops matters, profile
+# 2. On update step we only need to change 3 coefs per i,j (huge speedup)
+function biotSavart(qhat)
+	N = size(qhat)[2]
+	maxFreq = Int((N-1)/2)
+	vel = zeros(Complex, N, N, 2)
+	for i=1:N
+		for j=1:N
+			for k1=-maxFreq:maxFreq
+				for k2=-maxFreq:maxFreq
+					if k1 >= 0
+						qk = qhat[k1+1, mod(k2, N)+1]
+					else
+						qk = conj(qhat[-k1+1, mod(-k2, N)+1])
+					end
+
+					k=[k1, k2]
+					x=[2*pi*i/N, 2*pi*j/N]
+					if norm2(k) > 0 
+						vel[i,j,:] += qk * perp(k)/norm2(k) * exp(1im * prod(k, x))
+					end
+				end
+			end
+		end
+	end
+	vel = real(1im/(2*pi) * vel)
+	if any(isnan,vel)
+		println("nan detected")
+	end
+	return vel
 end
 
 # Compute a dict of all triples j,k,l in [-N,N] such that j+k+l=0
@@ -93,6 +133,11 @@ function evolve!(qhat, j, k, l, t)
 		ql = conj(qhat[-l[1]+1, mod(-l[2], N)+1])
 	end
 
+	# Verbose option?
+	#println("j: ", j, ", k: ", k, ", l: ", l)
+	#println("C_jl: ", C_jl, ", C_lk: ", C_lk, ", C_kj: ", C_kj)
+	#println("qj: ", qj, ", qk: ", qk, ", ql: ", ql)
+
 
 	tspan = (0.0, t)
 	prob = ODEProblem(ODEsystem!, [qj, qk, ql], tspan, [C_jl, C_lk, C_kj])
@@ -132,5 +177,20 @@ function coef(l,j)
 	if l == [0,0] || j == [0,0]
 		return 0
 	end
-	return (-j[2]*l[1] + j[1]*l[2])/(4*pi) * (1/(l[1]^2+l[2]^2) - 1/(j[1]^2+j[2]^2))
+	return (-j[2]*l[1] + j[1]*l[2])/(4*pi) * (1/norm2(l) - 1/norm2(j))
+end
+
+# Returns norm squared of a 2d vector
+function norm2(j)
+	return j[1]^2 + j[2]^2
+end
+
+# Returns inner product of 2d vectors
+function prod(j,k)
+	return j[1]*k[1] + j[2]*k[2]
+end
+
+# Returns perp of a 2d vector
+function perp(j)
+	return [-j[2], j[1]]
 end
