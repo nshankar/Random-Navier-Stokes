@@ -1,92 +1,77 @@
 using FFTW
 using Random
 using Distributions
+using DifferentialEquations
 using Plots
-include("helpers.jl")
+using DelimitedFiles
+using Interpolations
+include("dynamicsHelpers.jl")
+include("plottingHelper.jl")
+include("fourierIndexHandling.jl")
+include("myIO.jl")
+include("myLinAlg.jl")
 
-function main(h, iters, file_IC, type_IC, viz, lims_vorticity, lims_vorticityFreq) 
-	# Read IC file
-	if type_IC == "velocity"
-		vel, maxFreq = readVelocityIC(file_IC)
-		q = curl(vel)
-		qhat = rfft(q)
-	elseif type_IC == "vorticityFreq"
-		qhat, maxFreq = readVorticityFreqIC(file_IC)
-	else
-		println("Initial condition type not recognized")
+
+function main(h, iters, eps, selectTriples, passiveScalars, scalarsCoords,
+					fileIC, typeIC, viz, limsVorticity, limsVorticityFreq, plotEvery)
+
+	# Error check
+	if viz != "velocity" && passiveScalars == true
+		println("Visualization type must be velocity to display passive scalars")
 		return 1
 	end
 
+	qhat, maxFreq, vel = readIC(fileIC, typeIC)
+
 	# Prepare random triples
 	triples = computeTriples(maxFreq)
-	N = 2 * maxFreq + 1
-
-	# Visualization 
-	if viz == "velocity" || viz == "all"
-		X = repeat(LinRange(0, 2*pi, N), inner=N)
-		Y = repeat(LinRange(0, 2*pi, N), outer=N)
-		vel = biotSavart(qhat)
-		U = reshape(vel[:,:,1], N^2)
-		V = reshape(vel[:,:,2], N^2)
+	N = 2*maxFreq+1
+	if selectTriples == "cyclic"
+		cycle = randcycle(length(triples)^2-1)
 	end
 
-	if viz == "velocity"
-		quiver(X,Y, quiver=(U,V), arrowscale=0.1, aspect_ratio=1, show=true, 
-				xlim=(-0.5,2*pi+0.5), ylim=(-0.5,2*pi+0.5))
-	elseif viz == "vorticity"
-		heatmap(irfft(qhat, N)', colors=:grays, aspect_ratio=1, show=true, clims=lims_vorticity,
-					xlim=(0,N), ylim=(0,N))
-	elseif viz == "vorticityFreq"
-		heatmap(qhat', colors=:grays, aspect_ratio=1, show=true, clims=lims_vorticityFreq, ylim=(0,N))
-	elseif viz == "all"
-		p1 = quiver(X,Y, quiver=(U,V), arrowscale=0.1, aspect_ratio=1, 
-						xlim=(-0.5,2*pi+0.5), ylim=(-0.5,2*pi+0.5))
-		p2 = heatmap(irfft(qhat, N)', colors=:grays, aspect_ratio=1, clims=lims, xlim=(0,N), ylim=(0,N))
-		p3 = heatmap(qhat', colors=:grays, aspect_ratio=1, clims=lims, ylim=(0,N))
-		display(plot(p1, p2, p3, layout=(1,3)))#, size=(1000, 400)))
+	# Visualization
+	if passiveScalars == true
+		scalarsTraj = zeros(iters, size(scalarsCoords)[1], 2)
+		scalarsTraj[1, :, :] = scalarsCoords
 	else
-		println("Visualization type not recognized")
-		return 2
+		scalarsTraj = nothing
 	end
-	sleep(2)
 
-	for i=1:iters
+	if viz == "velocity" || viz == "all"
+		U, V = getItpVelocity(qhat)
+	else
+		U, V = nothing, nothing
+	end
+	myplot(1, viz, qhat, (U,V), passiveScalars, scalarsTraj, limsVorticity, limsVorticityFreq)
+
+	for i=2:iters
 		t = rand(Gamma(1, h))
-		j,k,l = randomTriple(triples)
-		# Verbose
-		# println("j: ", j,", k:",  k, ", l:", l, ", tstep: ", t)
-		evolve!(qhat, j, k, l, t)
-		
-		# Update plot every 10 iters
-		if mod(i, 10) == 0
-			# Visualization 
-			if viz == "velocity" || viz == "all"
-				vel = biotSavart(qhat)
-				U = reshape(vel[:,:,1], N^2)
-				V = reshape(vel[:,:,2], N^2)
-			end
 
-			if viz == "velocity"
-				quiver(X,Y, quiver=(U,V), arrowscale=0.1, aspect_ratio=1, show=true, xlim=(-0.5,2*pi+0.5), 
-						ylim=(-0.5,2*pi+0.5))
-			elseif viz == "vorticity"
-				heatmap(irfft(qhat, N)', colors=:grays, aspect_ratio=1, show=true, clims=lims_vorticity,
-						xlim=(0,N), ylim=(0,N))
-			elseif viz == "vorticityFreq"
-				heatmap(qhat', colors=:grays, aspect_ratio=1, show=true, clims=lims_vorticityFreq,
-						ylim=(0,N))
-			else # viz == "all"
-				p1 = quiver(X,Y, quiver=(U,V), arrowscale=0.1, aspect_ratio=1, 
-							xlim=(-0.5,2*pi+0.5), ylim=(-0.5,2*pi+0.5))
-				p2 = heatmap(irfft(qhat, N)', colors=:grays, aspect_ratio=1, clims=lims_vorticity, 
-								ylim=(-1,N+1))
-				p3 = heatmap(qhat', colors=:grays, aspect_ratio=1, clims=lims_vorticityFreq, ylim=(0,N))
-				display(plot(p1, p2, p3, layout=(1,3)))#, size=(1000, 400)))
-			end
-			println(".")
+		# Main dynamics
+		if selectTriples == "cyclic"
+			j,k,l = cyclicTriple(triples, cycle, i)
+		elseif selectTriples == "random"
+			j,k,l = randomTriple(triples)
+		else
+			return 3
+			println("selectTriples ", selectTriples," not recognized.")
+		end
+		evolve!(qhat, j, k, l, t)
+
+		# Propagate passive scalars
+		if passiveScalars == true
+			scalarsTraj[i,:,:] = transport(scalarsTraj[i-1,:,:], (U,V), t)
 		end
 
-
+		if mod(i, plotEvery) == 0
+		# Visualization 
+			if viz == "velocity" || viz == "all"
+				U, V = getItpVelocity(qhat)
+			end
+			myplot(i, viz, qhat, (U,V), passiveScalars, scalarsTraj, limsVorticity, limsVorticityFreq)
+		end
 	end
+	println("All Done!")
 end
 

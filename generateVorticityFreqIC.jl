@@ -2,12 +2,14 @@
 # Generates a csv file which can be used as input for main.jl
 using DelimitedFiles
 
-qhat(i,j) = (i == 1) && (j == 0 || j == 1)
-N = 11 # Require N odd (for now)
-filename = "vorticityFreqIC.csv"
+A = Set([1,5,6,8,17])
+
+N = 31 # Require N odd (for now)
+qhat(i,j) = 100*( (i in A && j in A) || mod(i*j, N)+1 in A)
+filename = "vorticityFreqIC2.csv"
 
 maxFreq = Int((N-1)/2)
-IC = Array{Float64}(undef, (Int((N+1)/2), N))
+IC = Array{Complex{Float64}}(undef, (Int((N+1)/2), N))
 
 for i=0:maxFreq
 	for j=-maxFreq:maxFreq

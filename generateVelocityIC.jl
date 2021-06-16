@@ -4,7 +4,7 @@ using DelimitedFiles
 
 u1(x,y) = exp(-x^2 - y^2) * x * y
 u2(x,y) = sin(exp(x*y))
-N = 201 # Require N odd (for now)
+N = 3 # Require N odd (for now)
 filename = "IC.csv"
 
 
