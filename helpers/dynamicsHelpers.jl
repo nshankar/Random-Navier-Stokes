@@ -1,31 +1,5 @@
 # Requires DifferentialEquations
-
-
-# Time independent RK4
-function myRK4!(f, x, params, h)
-	k1 = f(x, params)
-	k2 = f(x+0.5*k1, params)
-	k3 = f(x+0.5*k2, params)
-	k4 = f(x+k3, params)
-	# For mutability reasons
-	for i=1:length(x)
-		x[i] += h*(k1[i] + 2*k2[i] + 2*k3[i] + k4[i])/6.
-	end
-end
-
-# Pushes x forward by the function f for time t
-function mySolver!(f, x, params, t)
-	step = min(0.001, t)   #todo should be min(eps, t)
-	tpoints = 0:step:t
-
-	for i=1:length(tpoints)
-		myRK4!(f, x, step, params)
-	end
-
-	if t > tpoints[end]
-		myRK4!(f, x, t-tpoints[end], params)
-	end
-end
+# Requires StaticArrays
 
 # Uses vorticity coefficients (qhat) to derive velocity field and 
 # then interpolates with a quadratic periodic spline
@@ -34,11 +8,13 @@ function getItpVelocity(qhat)
 	vel = biotSavart(qhat)
 	grid = LinRange(0, 2*pi, N)
 	U = Interpolations.scale(
-					interpolate(vel[:,:,1], BSpline(Quadratic(Periodic(OnCell())))),
-					grid, grid)
+					interpolate(vel[:,:,1], 
+									BSpline(Quadratic(Periodic(OnCell())))),
+									grid, grid)
 	V = Interpolations.scale(
-					interpolate(vel[:,:,2], BSpline(Quadratic(Periodic(OnCell())))),
-					grid, grid)
+					interpolate(vel[:,:,2], 
+									BSpline(Quadratic(Periodic(OnCell())))),
+									grid, grid)
 	return U,V
 end
 
@@ -87,7 +63,7 @@ function transportODE!(dx, x, (U,V), t)
 end
 
 # Solves coupled ODE for time t
-function evolve!(qhat, j, k, l, t)
+function evolve!(qhat::Matrix{ComplexF64}, j::Vector{Int64}, k::Vector{Int64}, l::Vector{Int64}, t::Float64)
 	N = size(qhat)[2]
 
 	C_jl = couplingCoef(j,l)
@@ -98,25 +74,38 @@ function evolve!(qhat, j, k, l, t)
 	qk = getFourierCoef(qhat, k)
 	ql = getFourierCoef(qhat, l)
 
+	q0 = @SVector [qj, qk, ql] 
 	tspan = (0.0, t)
-	prob = ODEProblem(evolveODE!, [qj, qk, ql], tspan, [C_jl, C_lk, C_kj])
-	sol = solve(prob)
+	p = @SVector [C_jl, C_lk, C_kj]
 
-	qj, qk, ql = sol[end]
+	prob = ODEProblem{false}(evolveODE, q0, tspan, p)
+	qj, qk, ql = solve(prob, Tsit5(), save_everystep=false)[end]
 
 	setFourierCoef!(qhat, qj, j)
 	setFourierCoef!(qhat, qk, k)
 	setFourierCoef!(qhat, ql, l)
 end
 
-# Coupled ODE
+# StaticArray Coupled ODE (Fast)
+function evolveODE(q0::SVector{3, ComplexF64}, p::SVector{3, Float64}, t::Float64)
+	C_jl, C_lk, C_kj = p
+	qj, qk, ql = q0
+	dqj = -conj(C_jl*qk*ql)
+	dqk = -conj(C_lk*qj*ql)
+	dql = -conj(C_kj*qj*qk)
+	return @SVector [dqj, dqk, dql]
+end
+
+
+#=
+# In-Place Coupled ODE
 function evolveODE!(dq, q, p, t)
 	C_jl, C_lk, C_kj = p
 	dq[1] = -conj(C_jl*q[2]*q[3])
 	dq[2] = -conj(C_lk*q[1]*q[3])
 	dq[3] = -conj(C_kj*q[1]q[2])
 end
-
+=#
 
 function getFourierCoef(qhat, j)
 	N = size(qhat)[2]

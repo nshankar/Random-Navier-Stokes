@@ -1,27 +1,18 @@
 using FFTW
 using Random
 using Distributions
-using DifferentialEquations
-using Plots
+using OrdinaryDiffEq
+using StaticArrays
 using DelimitedFiles
 using Interpolations
-include("dynamicsHelpers.jl")
-include("plottingHelper.jl")
-include("fourierIndexHandling.jl")
-include("myIO.jl")
-include("myLinAlg.jl")
+include("helpers/dynamicsHelpers.jl")
+include("helpers/fourierIndexHandling.jl")
+include("helpers/myIO.jl")
+include("helpers/myLinAlg.jl")
 
 
-function main(h, iters, eps, selectTriples, passiveScalars, scalarsCoords,
-					fileIC, typeIC, viz, limsVorticity, limsVorticityFreq, plotEvery)
-
-	# Error check
-	if viz != "velocity" && passiveScalars == true
-		println("Visualization type must be velocity to display passive scalars")
-		return 1
-	end
-
-	qhat, maxFreq, vel = readIC(fileIC, typeIC)
+function main(h, iters, selectTriples, passiveScalars, scalarsCoords, fileIC)
+	qhat, maxFreq, vel = readIC(fileIC, "vorticityFreq")
 
 	# Prepare random triples
 	triples = computeTriples(maxFreq)
@@ -30,20 +21,14 @@ function main(h, iters, eps, selectTriples, passiveScalars, scalarsCoords,
 		cycle = randcycle(length(triples)^2-1)
 	end
 
-	# Visualization
+	# Needs to be fixed
 	if passiveScalars == true
 		scalarsTraj = zeros(iters, size(scalarsCoords)[1], 2)
 		scalarsTraj[1, :, :] = scalarsCoords
+		U, V = getItpVelocity(qhat)
 	else
 		scalarsTraj = nothing
 	end
-
-	if viz == "velocity" || viz == "all"
-		U, V = getItpVelocity(qhat)
-	else
-		U, V = nothing, nothing
-	end
-	myplot(1, viz, qhat, (U,V), passiveScalars, scalarsTraj, limsVorticity, limsVorticityFreq)
 
 	for i=2:iters
 		t = rand(Gamma(1, h))
@@ -54,22 +39,16 @@ function main(h, iters, eps, selectTriples, passiveScalars, scalarsCoords,
 		elseif selectTriples == "random"
 			j,k,l = randomTriple(triples)
 		else
-			return 3
-			println("selectTriples ", selectTriples," not recognized.")
+			return 1
+			println("Triple selection method: ", selectTriples," not recognized.")
 		end
 		evolve!(qhat, j, k, l, t)
 
 		# Propagate passive scalars
+		# Needs to be fixed
 		if passiveScalars == true
+			U, V = getItpVelocity(qhat)
 			scalarsTraj[i,:,:] = transport(scalarsTraj[i-1,:,:], (U,V), t)
-		end
-
-		if mod(i, plotEvery) == 0
-		# Visualization 
-			if viz == "velocity" || viz == "all"
-				U, V = getItpVelocity(qhat)
-			end
-			myplot(i, viz, qhat, (U,V), passiveScalars, scalarsTraj, limsVorticity, limsVorticityFreq)
 		end
 	end
 	println("All Done!")
