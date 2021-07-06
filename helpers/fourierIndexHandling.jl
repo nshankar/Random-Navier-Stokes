@@ -1,6 +1,6 @@
 function cyclicTriple(triples, cycle, ind)
 	M = length(triples)
-	ind = mod(ind, M^2) + 1
+	ind = mod(ind, M^2 - 1) + 1
 	res = divrem(cycle[ind], M)
 
 	j = Array{Int64}(undef, 2)
@@ -25,7 +25,6 @@ function computeTriples(N)
 	counter = 1
 
 	# Consider storing j,k,l in increasing order to save 6x space and some time
-	# Only need to store half because of rfft properties
 	for j = -N:N
 		for k = -N:N
 			l = - j - k

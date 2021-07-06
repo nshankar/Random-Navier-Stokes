@@ -1,5 +1,6 @@
-# Requires DifferentialEquations
+# Requires OrdinaryDiffEq
 # Requires StaticArrays
+# Requires SciMLBase
 
 # Uses vorticity coefficients (qhat) to derive velocity field and 
 # then interpolates with a quadratic periodic spline
@@ -63,7 +64,7 @@ function transportODE!(dx, x, (U,V), t)
 end
 
 # Solves coupled ODE for time t
-function evolve!(qhat::Matrix{ComplexF64}, j::Vector{Int64}, k::Vector{Int64}, l::Vector{Int64}, t::Float64)
+function evolve!(integrator, qhat::Matrix{ComplexF64}, j::Vector{Int64}, k::Vector{Int64}, l::Vector{Int64}, t::Float64)
 	N = size(qhat)[2]
 
 	C_jl = couplingCoef(j,l)
@@ -78,8 +79,13 @@ function evolve!(qhat::Matrix{ComplexF64}, j::Vector{Int64}, k::Vector{Int64}, l
 	tspan = (0.0, t)
 	p = @SVector [C_jl, C_lk, C_kj]
 
-	prob = ODEProblem{false}(evolveODE, q0, tspan, p)
-	qj, qk, ql = solve(prob, Tsit5(), save_everystep=false)[end]
+	SciMLBase.set_ut!(integrator, q0, 0.)
+	add_tstop!(integrator, t)
+	integrator.p = p
+
+	#prob = ODEProblem{false}(evolveODE, q0, tspan, p)
+	solve!(integrator)
+	qj, qk, ql = integrator.sol[end]
 
 	setFourierCoef!(qhat, qj, j)
 	setFourierCoef!(qhat, qk, k)
@@ -96,6 +102,14 @@ function evolveODE(q0::SVector{3, ComplexF64}, p::SVector{3, Float64}, t::Float6
 	return @SVector [dqj, dqk, dql]
 end
 
+
+function getEvolveIntegrator()
+	q0 = @SVector [complex(0.,0.),complex(0.,0.),complex(0.,0.)]
+	tspan = (0., 1.)
+	p = @SVector [0., 0., 0.]
+	prob = ODEProblem{false}(evolveODE, q0, tspan, p)
+	return init(prob, Tsit5(), save_everystep=false, maxiters = typemax(Int))
+end
 
 #=
 # In-Place Coupled ODE
