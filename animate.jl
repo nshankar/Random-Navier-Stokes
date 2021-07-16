@@ -1,12 +1,13 @@
 using Plots
 using FFTW
 using DelimitedFiles
+using ColorSchemes
 
-function animateVorticity(file, lims)
+function animateVorticity(filein, fileout, lims)
 	# read in data as Nx?xT matrix
 	# irfft first 2 coords
 	# animate real data
-	f = open(file, "r")
+	f = open(filein, "r")
 	data, header = readdlm(f, ',', ComplexF64, header=true)
 	
 	# Think about if there is a better way to do this
@@ -21,12 +22,13 @@ function animateVorticity(file, lims)
 	anim = @animate for i = 1:Int(size(data)[1]/indexer)
 		qhat = @view data[(i-1)*indexer + 1:i*indexer, :]
 		heatmap(grid, grid, irfft(qhat, N)',
-				colors=:grays, aspect_ratio=1, clims=lims, show=false, title="Vorticity Field")
+				c = :delta,	aspect_ratio=1, clims=lims, 
+				show=false, title="Vorticity Field")
 	end
-	gif(anim, "test3.gif", fps = 20)
+	gif(anim, fileout, fps = 10)
 
 end
 
 # Important for plotting behavior
 ENV["GKSwstype"]="nul"
-animateVorticity("output/output0", (-0.5, 0.5))
+animateVorticity("output/output5", "test5.gif", (-5, 5))

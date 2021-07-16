@@ -96,8 +96,8 @@ end
 function evolveODE(q0::SVector{3, ComplexF64}, p::SVector{3, Float64}, t::Float64)
 	C_jl, C_lk, C_kj = p
 	qj, qk, ql = q0
-	dqj = -conj(C_jl*qk*ql)
-	dqk = -conj(C_lk*qj*ql)
+	dqj = -conj(C_lk*qk*ql)
+	dqk = -conj(C_jl*qj*ql)
 	dql = -conj(C_kj*qj*qk)
 	return @SVector [dqj, dqk, dql]
 end
