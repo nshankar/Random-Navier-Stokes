@@ -3,3 +3,4 @@ test
 initialConditions
 *.icloud
 *.gif
+.DS_Store
