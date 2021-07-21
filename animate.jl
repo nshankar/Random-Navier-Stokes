@@ -23,7 +23,7 @@ function animateVorticity(filein, fileout, lims)
 		qhat = @view data[(i-1)*indexer + 1:i*indexer, :]
 		heatmap(grid, grid, irfft(qhat, N)',
 				c = :delta,	aspect_ratio=1, clims=lims, 
-				show=false, title="Vorticity Field")
+				show=false, title="Vorticity Field, h = 1E-4")
 	end
 	gif(anim, fileout, fps = 10)
 
@@ -31,4 +31,4 @@ end
 
 # Important for plotting behavior
 ENV["GKSwstype"]="nul"
-animateVorticity("output/temp", "temp.gif", (-5, 5))
+animateVorticity("output/long_run", "long_run.gif", (-5, 5))

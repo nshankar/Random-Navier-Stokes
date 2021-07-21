@@ -6,13 +6,12 @@ using OrdinaryDiffEq
 using StaticArrays
 using SciMLBase
 using Interpolations
-using LinearAlgebra
 include("helpers/dynamics.jl")
 include("helpers/fourierIndexHandling.jl")
 include("helpers/fileHandling.jl")
 
 
-function main(h, cycles, eps, selectTriples, passiveScalars, scalarsCoords, fileIC, fileOutput)
+function main(h, cycles, selectTriples, passiveScalars, scalarsCoords, fileIC, fileOutput)
 	# Read input	
 	qhat, maxFreq, vel = readIC(fileIC, "vorticityFreq")
 
@@ -37,8 +36,11 @@ function main(h, cycles, eps, selectTriples, passiveScalars, scalarsCoords, file
 		scalarsTraj = nothing
 	end
 	
-	evolveIntegrator = getEvolveIntegrator(eps)
+	p = MVector{3,Float64}(0.,0.,0.)
 	for m=1:cycles
+		# attempt to solve memory issues
+		evolveIntegrator = getEvolveIntegrator()
+
 		for n=1:length(triples)^2
 			t = rand(Gamma(1, h))
 
@@ -51,12 +53,11 @@ function main(h, cycles, eps, selectTriples, passiveScalars, scalarsCoords, file
 				return 1
 				println("Triple selection method: ", selectTriples," not recognized.")
 			end
-			evolve!(evolveIntegrator, qhat, j, k, l, t)
+			p[1] = couplingCoef(j,l)
+			p[2] = couplingCoef(l,k)
+			p[3] = couplingCoef(k,j)
+			evolve!(evolveIntegrator, qhat, j, k, l, t, p)
 
-			# save output once per cycle
-			if mod(n, N^3) == 0
-				writedlm(output, qhat, ',')
-			end
 		end
 
 		# Propagate passive scalars
@@ -65,8 +66,12 @@ function main(h, cycles, eps, selectTriples, passiveScalars, scalarsCoords, file
 			U, V = getItpVelocity(qhat)
 			scalarsTraj[i,:,:] = transport(scalarsTraj[i-1,:,:], (U,V), t)
 		end
+
+		# save output once in a while
+		writedlm(output, qhat, ',')
 		# Enforce garbage collection
 		GC.gc()
+		sleep(0.001)
 	end
 	close(output)
 	println("All Done!")

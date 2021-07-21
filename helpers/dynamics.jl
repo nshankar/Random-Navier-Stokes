@@ -1,7 +1,6 @@
 # Requires OrdinaryDiffEq
 # Requires StaticArrays
 # Requires SciMLBase
-# Requires LinearAlgebra
 
 # Uses vorticity coefficients (qhat) to derive velocity field and 
 # then interpolates with a quadratic periodic spline
@@ -65,17 +64,12 @@ function transportODE!(dx, x, (U,V), t)
 end
 
 # Solves coupled ODE for time t
-function evolve!(integrator, qhat::Matrix{ComplexF64}, j::SVector{2,Int64}, k::SVector{2,Int64}, l::SVector{2,Int64}, t::Float64)
-	C_jl = couplingCoef(j,l)
-	C_lk = couplingCoef(l,k)
-	C_kj = couplingCoef(k,j)
-
+function evolve!(integrator, qhat::Matrix{ComplexF64}, j::SVector{2,Int64}, 
+					k::SVector{2,Int64}, l::SVector{2,Int64}, t::Float64, p::MVector{3,Float64})
 	qj = getFourierCoef(qhat, j)
 	qk = getFourierCoef(qhat, k)
 	ql = getFourierCoef(qhat, l)
-
 	q0 = SVector{3,ComplexF64}(qj, qk, ql)
-	p = (C_jl, C_lk, C_kj)
 
 	SciMLBase.set_ut!(integrator, q0, 0.)
 	add_tstop!(integrator, t)
@@ -90,7 +84,7 @@ function evolve!(integrator, qhat::Matrix{ComplexF64}, j::SVector{2,Int64}, k::S
 end
 
 # StaticArray Coupled ODE (Fast)
-function evolveODE(q0::SVector{3, ComplexF64}, p::NTuple{3, Float64}, t::Float64)
+function evolveODE(q0::SVector{3, ComplexF64}, p::MVector{3, Float64}, t::Float64)
 	C_jl, C_lk, C_kj = p
 	qj, qk, ql = q0
 	dqj = -conj(C_lk*qk*ql)
@@ -100,10 +94,10 @@ function evolveODE(q0::SVector{3, ComplexF64}, p::NTuple{3, Float64}, t::Float64
 end
 
 
-function getEvolveIntegrator(eps)
+function getEvolveIntegrator()
 	q0 = SVector{3,ComplexF64}(0.,0.,0.)
 	tspan = (0., 1)
-	p = (0., 0., 0.)
+	p = MVector{3,Float64}(0., 0., 0.)
 	prob = ODEProblem{false}(evolveODE, q0, tspan, p)
 	return init(prob, Tsit5(), save_everystep=false, maxiters = typemax(Int))
 end
@@ -129,8 +123,12 @@ end
 
 # Returns C_{l,j}
 function couplingCoef(l::SVector{2,Int64}, j::SVector{2,Int64})
-	if norm(l) == 0 || norm(j) == 0
+	if norm2(l) == 0 || norm2(j) == 0
 		return 0
 	end
-	return (-j[2]*l[1] + j[1]*l[2])/(4*pi) * (1/norm(l) - 1/norm(j))
+	return (-j[2]*l[1] + j[1]*l[2])/(4*pi) * (1/norm2(l) - 1/norm2(j))
+end
+
+function norm2(x::SVector{2,Int64})
+	return x[1]*x[1] + x[2]*x[2]
 end
