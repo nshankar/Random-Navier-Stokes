@@ -31,4 +31,4 @@ end
 
 # Important for plotting behavior
 ENV["GKSwstype"]="nul"
-animateVorticity("output/output5", "test5.gif", (-5, 5))
+animateVorticity("output/temp", "temp.gif", (-5, 5))

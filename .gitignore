@@ -1,6 +1,6 @@
-output
-test
-initialConditions
+output/*
+test*
+*.mem
 *.icloud
 *.gif
 .DS_Store

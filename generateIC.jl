@@ -2,21 +2,22 @@
 # Generates a csv file which can be used as input for main.jl
 using DelimitedFiles
 using FFTW
-using Plots
 
 function gauss(i,j,center, var, coef)
 	return coef * exp(-((center[1] - i)^2 + (center[2] - j)^2)/(2*var))
 
 end
 
-filename = "initialConditions/vorticityFreqIC5.csv"
+filename = "initialConditions/smallIC.csv"
 
 centers = [[6,6], [20, 30], [44, 15]]
 coefs = [3, 5, -4]
 vars = [1, 10, 4]
 
-N = 61 # Require N odd (for now)
-q(i,j) = gauss(i,j, centers[1], vars[1], coefs[1]) + gauss(i,j, centers[2], vars[2],coefs[2]) + gauss(i,j, centers[3], vars[3], coefs[3])
+N = 3 # Require N odd (for now)
+q(i,j) = gauss(i,j, centers[1], vars[1], coefs[1]) +
+		+ gauss(i,j, centers[2], vars[2],coefs[2]) +
+		+ gauss(i,j, centers[3], vars[3], coefs[3])
 
 ICReal = Array{Float64}(undef,(N,N))
 for i=1:N
@@ -38,7 +39,6 @@ for i=0:maxFreq
 end
 IC[1,1] = 0
 =#
-heatmap(real.(IC), show=true)
 
 writedlm(filename,  IC, ',')
 

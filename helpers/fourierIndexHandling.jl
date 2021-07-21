@@ -1,18 +1,13 @@
 function cyclicTriple(triples, cycle, ind)
 	M = length(triples)
-	ind = mod(ind, M^2 - 1) + 1
-	res = divrem(cycle[ind], M)
+	q_, r_ = divrem(cycle[ind] - 1, M)
+	q = q_+1
+	r = r_+1
 
-	j = Array{Int64}(undef, 2)
-	k = Array{Int64}(undef, 2)
-	l = Array{Int64}(undef, 2)
+	j = SVector{2,Int64}(triples[q][1],triples[r][1])
+	k = SVector{2,Int64}(triples[q][2],triples[r][2])
+	l = SVector{2,Int64}(triples[q][3],triples[r][3])
 
-
-	for i = 1:2
-		j[i] = triples[res[i]+1][1]
-		k[i] = triples[res[i]+1][2]
-		l[i] = triples[res[i]+1][3]
-	end
 	return j,k,l
 end
 

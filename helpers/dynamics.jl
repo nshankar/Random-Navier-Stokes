@@ -1,6 +1,7 @@
 # Requires OrdinaryDiffEq
 # Requires StaticArrays
 # Requires SciMLBase
+# Requires LinearAlgebra
 
 # Uses vorticity coefficients (qhat) to derive velocity field and 
 # then interpolates with a quadratic periodic spline
@@ -64,9 +65,7 @@ function transportODE!(dx, x, (U,V), t)
 end
 
 # Solves coupled ODE for time t
-function evolve!(integrator, qhat::Matrix{ComplexF64}, j::Vector{Int64}, k::Vector{Int64}, l::Vector{Int64}, t::Float64)
-	N = size(qhat)[2]
-
+function evolve!(integrator, qhat::Matrix{ComplexF64}, j::SVector{2,Int64}, k::SVector{2,Int64}, l::SVector{2,Int64}, t::Float64)
 	C_jl = couplingCoef(j,l)
 	C_lk = couplingCoef(l,k)
 	C_kj = couplingCoef(k,j)
@@ -75,15 +74,13 @@ function evolve!(integrator, qhat::Matrix{ComplexF64}, j::Vector{Int64}, k::Vect
 	qk = getFourierCoef(qhat, k)
 	ql = getFourierCoef(qhat, l)
 
-	q0 = @SVector [qj, qk, ql] 
-	tspan = (0.0, t)
-	p = @SVector [C_jl, C_lk, C_kj]
+	q0 = SVector{3,ComplexF64}(qj, qk, ql)
+	p = (C_jl, C_lk, C_kj)
 
 	SciMLBase.set_ut!(integrator, q0, 0.)
 	add_tstop!(integrator, t)
 	integrator.p = p
 
-	#prob = ODEProblem{false}(evolveODE, q0, tspan, p)
 	solve!(integrator)
 	qj, qk, ql = integrator.sol[end]
 
@@ -93,7 +90,7 @@ function evolve!(integrator, qhat::Matrix{ComplexF64}, j::Vector{Int64}, k::Vect
 end
 
 # StaticArray Coupled ODE (Fast)
-function evolveODE(q0::SVector{3, ComplexF64}, p::SVector{3, Float64}, t::Float64)
+function evolveODE(q0::SVector{3, ComplexF64}, p::NTuple{3, Float64}, t::Float64)
 	C_jl, C_lk, C_kj = p
 	qj, qk, ql = q0
 	dqj = -conj(C_lk*qk*ql)
@@ -103,23 +100,13 @@ function evolveODE(q0::SVector{3, ComplexF64}, p::SVector{3, Float64}, t::Float6
 end
 
 
-function getEvolveIntegrator()
-	q0 = @SVector [complex(0.,0.),complex(0.,0.),complex(0.,0.)]
-	tspan = (0., 1.)
-	p = @SVector [0., 0., 0.]
+function getEvolveIntegrator(eps)
+	q0 = SVector{3,ComplexF64}(0.,0.,0.)
+	tspan = (0., 1)
+	p = (0., 0., 0.)
 	prob = ODEProblem{false}(evolveODE, q0, tspan, p)
 	return init(prob, Tsit5(), save_everystep=false, maxiters = typemax(Int))
 end
-
-#=
-# In-Place Coupled ODE
-function evolveODE!(dq, q, p, t)
-	C_jl, C_lk, C_kj = p
-	dq[1] = -conj(C_jl*q[2]*q[3])
-	dq[2] = -conj(C_lk*q[1]*q[3])
-	dq[3] = -conj(C_kj*q[1]q[2])
-end
-=#
 
 function getFourierCoef(qhat, j)
 	N = size(qhat)[2]
@@ -141,9 +128,9 @@ function setFourierCoef!(qhat, qj, j)
 end
 
 # Returns C_{l,j}
-function couplingCoef(l,j)
-	if l == [0,0] || j == [0,0]
+function couplingCoef(l::SVector{2,Int64}, j::SVector{2,Int64})
+	if norm(l) == 0 || norm(j) == 0
 		return 0
 	end
-	return (-j[2]*l[1] + j[1]*l[2])/(4*pi) * (1/norm2(l) - 1/norm2(j))
+	return (-j[2]*l[1] + j[1]*l[2])/(4*pi) * (1/norm(l) - 1/norm(j))
 end
