@@ -2,5 +2,7 @@ output/*
 test*
 *.mem
 *.icloud
+*.dat
+*.png
 *.gif
 .DS_Store

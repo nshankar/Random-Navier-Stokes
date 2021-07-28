@@ -1,79 +1,94 @@
-using DelimitedFiles
-using Random
-using Distributions
-using FFTW
-using OrdinaryDiffEq
-using StaticArrays
-using SciMLBase
-using Interpolations
-include("helpers/dynamics.jl")
-include("helpers/fourierIndexHandling.jl")
-include("helpers/fileHandling.jl")
-
-
-function main(h, cycles, selectTriples, passiveScalars, scalarsCoords, fileIC, fileOutput)
-	# Read input	
+function computeVorticityFreq(h, ncycles, fileIC, folder)
+	# Read input
 	qhat, maxFreq, vel = readIC(fileIC, "vorticityFreq")
 
 	# Prepare random triples
 	triples = computeTriples(maxFreq)
 	N = 2*maxFreq+1
-	if selectTriples == "cyclic"
-		cycle = randcycle(length(triples)^2)
-	end
+	cycle = randcycle(length(triples)^2)
 
 	# Prepare output file
-	output = open(fileOutput,"w")
-	writedlm(output, Array{Float64}([h  N]))
+	mkpath(folder)
+	output = open(folder*"vorticityFreq.dat","w")
+	writedlm(output, Array{Float64}([h  N ncycles]))
 	writedlm(output, qhat, ',')
 
-	# Needs to be fixed
-	if passiveScalars == true
-		scalarsTraj = zeros(iters, size(scalarsCoords)[1], 2)
-		scalarsTraj[1, :, :] = scalarsCoords
-		U, V = getItpVelocity(qhat)
-	else
-		scalarsTraj = nothing
-	end
-	
 	p = MVector{3,Float64}(0.,0.,0.)
-	for m=1:cycles
-		# attempt to solve memory issues
+	for m=1:ncycles
+		# Required for memory management
 		evolveIntegrator = getEvolveIntegrator()
 
 		for n=1:length(triples)^2
 			t = rand(Gamma(1, h))
-
 			# Main dynamics
-			if selectTriples == "cyclic"
-				j,k,l = cyclicTriple(triples, cycle, n)
-			elseif selectTriples == "random"
-				j,k,l = randomTriple(triples)
-			else
-				return 1
-				println("Triple selection method: ", selectTriples," not recognized.")
-			end
+			j,k,l = cyclicTriple(triples, cycle, n)
 			p[1] = couplingCoef(j,l)
 			p[2] = couplingCoef(l,k)
 			p[3] = couplingCoef(k,j)
 			evolve!(evolveIntegrator, qhat, j, k, l, t, p)
-
 		end
 
-		# Propagate passive scalars
-		# Needs to be fixed
-		if passiveScalars == true
-			U, V = getItpVelocity(qhat)
-			scalarsTraj[i,:,:] = transport(scalarsTraj[i-1,:,:], (U,V), t)
-		end
-
-		# save output once in a while
+		# save output once per cycle
 		writedlm(output, qhat, ',')
 		# Enforce garbage collection
 		GC.gc()
 		sleep(0.001)
 	end
 	close(output)
-	println("All Done!")
+end
+
+
+# Given vorticity frequencies as fileinput, compute the vorticity and write to fileoutput
+function computeVorticity(folder)
+	h, N, ncycles, data = getVorticityFreqData(folder)
+	output = open(folder*"vorticity.dat","w")
+	writedlm(output, Array{Float64}([h  N ncycles]))
+
+	for i = 1:ncycles+1
+		qhat = @view data[:,:,i]
+		writedlm(output, irfft(qhat, N), ',')
+	end
+	close(output)
+end
+
+# Given vorticity frequencies as fileinput, compute the velocity and write to fileoutput
+# For now passive scalars are not supported
+function computeVelocity(gridSize, passiveScalars, scalarsCoords, folder)
+	h, N, ncycles, data = getVorticityFreqData(folder)
+	output = open(folder*"velocity.dat","w")
+	writedlm(output, Array{Float64}([h  gridSize ncycles]))
+
+	X = repeat(LinRange(0, 2*pi, gridSize), inner=gridSize)
+	Y = repeat(LinRange(0, 2*pi, gridSize), outer=gridSize)
+	Z = zip(X,Y)
+
+	for i = 1:ncycles+1
+		qhat = @view data[:,:,i]
+		U, V = getItpVelocity(qhat)
+		U_discrete = [U(x,y) for (x,y) in Z]
+		V_discrete = [V(x,y) for (x,y) in Z]
+		
+		writedlm(output, U_discrete, ',')
+		writedlm(output, V_discrete, ',')
+	end
+	close(output)
+
+	# Needs to be fixed
+	#=if passiveScalars == true
+		scalarsTraj = zeros(iters, size(scalarsCoords)[1], 2)
+		scalarsTraj[1, :, :] = scalarsCoords
+		U, V = getItpVelocity(qhat)
+	else
+		scalarsTraj = nothing
+	end
+	=#
+
+	# Propagate passive scalars
+	# Needs to be fixed
+	#=if passiveScalars == true
+		U, V = getItpVelocity(qhat)
+		scalarsTraj[i,:,:] = transport(scalarsTraj[i-1,:,:], (U,V), t)
+	end
+	=#
 end
 

@@ -25,13 +25,14 @@ function biotSavart(qhat)
 	N = size(qhat)[2]
 	maxFreq = Int((N-1)/2)
 	velhat = zeros(Complex{Float64}, maxFreq+1, N, 2)
-
+	k = MVector{2,Float64}(0.,0.)
 	for k1=0:maxFreq
 		for k2=-maxFreq:maxFreq
-			k = [k1, k2]
+			k[1] = k1
+			k[2] = k2
 			qk = qhat[k1+1, mod(k2,N)+1]
 			
-			if norm2(k) > 0
+			if isNonZero(k)
 				velhat[k1+1, mod(k2,N)+1,:] = -1im * perp(k)/norm2(k) * qk
 			end
 		end
@@ -122,13 +123,27 @@ function setFourierCoef!(qhat, qj, j)
 end
 
 # Returns C_{l,j}
-function couplingCoef(l::SVector{2,Int64}, j::SVector{2,Int64})
-	if norm2(l) == 0 || norm2(j) == 0
-		return 0
+function couplingCoef(l, j)
+	if isNonZero(l) && isNonZero(j)
+		return (-j[2]*l[1] + j[1]*l[2])/(4*pi) * (1/norm2(l) - 1/norm2(j))
 	end
-	return (-j[2]*l[1] + j[1]*l[2])/(4*pi) * (1/norm2(l) - 1/norm2(j))
+	return 0
 end
 
-function norm2(x::SVector{2,Int64})
+
+### Some functions for specifically length 2 vectors
+function norm2(x)
 	return x[1]*x[1] + x[2]*x[2]
+end
+
+function isNonZero(x)
+	if x[1] == 0 && x[2] == 0
+		return false
+	end
+	return true
+end
+
+function perp(x)
+	x[1], x[2] = -x[2], x[1]
+	return x
 end
