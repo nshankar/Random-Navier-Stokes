@@ -1,3 +1,7 @@
+# requires Random
+# requires Plots
+# requires Printf
+
 function animateVorticity(folder, lims, framerate)
 	h, N, ncycles, data = getVorticityData(folder)
 	grid = LinRange(0, 2*pi, N)
@@ -9,7 +13,90 @@ function animateVorticity(folder, lims, framerate)
 				c = :delta,	aspect_ratio=1, clims=lims, 
 				show=false, title=titlestring)
 	end
-	gif(anim, folder*"vorticity.gif", fps = framerate)
+	mp4(anim, folder*"vorticity.mp4", fps = framerate)
+end
+
+
+# This is a temporary solution, but not particularly efficient
+function animateVorticityAndEnstrophy(folder, lims, framerate, n_samples)
+	h, N, ncycles, qData = getVorticityData(folder)
+	_, _, _, qhatData = getVorticityFreqData(folder)
+	maxFreq = Int((N-1)/2)
+
+	grid = LinRange(0, 2*pi, N)
+	j_indices, k_indices, l_indices = getIndices(maxFreq, n_samples)
+	
+	# Vectorize this loop
+	log_indices = zeros(n_samples)
+	for i = 1:n_samples
+		log_indices[i] = log(norm2(j_indices[:,i]) + norm2(k_indices[:,i]) + norm2(l_indices[:,i]))
+	end
+
+	qtitlestring = Printf.@sprintf "Vorticity Field, h = %.1e, N = %i" h N
+	etitlestring = "Log(1 + Enstrophy) Histogram"
+
+	plotdims = (500, 400)
+	anim = @animate for i = 1:ncycles+1
+		q = @view qData[:,:,i]
+		qhat = @view qhatData[:,:,i]
+		p1 = heatmap(grid, grid, q,
+						c = :delta, clims=lims, 
+						size=plotdims, title=qtitlestring)
+		
+		log_enstrophies = log.(ones(n_samples) + getEnstrophy(qhat, j_indices, k_indices, l_indices))
+		#p2 = histogram(log_enstrophies, size=plotdims, title=etitlestring, 
+		#				normalize=:pdf, ylims = (0,0.5), xlims = (0, 20), bins=10, legend=false)
+		p2 = scatter(log_indices, log_enstrophies, size=plotdims, title="Enstrophy vs Frequency", ylims=(0,15),
+						xlabel="log(|j|^2 + |k|^2 + |l|^2)", ylabel="log(1+Enstrophy)", legend=false)
+		plot(p1, p2, layout=@layout([A B]), size=(1100, 500), margin=5Plots.mm)
+	end
+	mp4(anim, folder*"vorticity.mp4", fps = framerate)
+
+
+end
+
+function getEnstrophy(qhat, j_indices, k_indices, l_indices)
+	n_samples = size(j_indices)[2]
+	enstrophies = zeros(n_samples)
+
+	for i = 1:n_samples
+		qj = getFourierCoef(qhat, j_indices[:,i])
+		qk = getFourierCoef(qhat, k_indices[:,i])
+		ql = getFourierCoef(qhat, l_indices[:,i])
+		enstrophies[i] = abs(qj)^2 + abs(qk)^2 + abs(ql)^2
+	end
+	return enstrophies
+end
+
+function getIndices(maxFreq, n_samples)
+	j_indices = zeros(Int64,2,n_samples)
+	k_indices = zeros(Int64,2,n_samples)
+	l_indices = zeros(Int64,2,n_samples)
+	for i=1:n_samples
+		j,k,l = getIndex(maxFreq)
+		j_indices[:,i] = j
+		k_indices[:,i] = k
+		l_indices[:,i]= l
+	end
+	return j_indices, k_indices, l_indices
+end
+
+function getIndex(maxFreq)
+	j = MVector{2,Int64}(maxFreq+1,maxFreq+1)
+	k = MVector{2,Int64}(maxFreq+1,maxFreq+1)
+	l = MVector{2,Int64}(maxFreq+1,maxFreq+1)
+
+	# Rejection sampling algorithm: uniformly samples
+	# j,k,l in [-maxFreq, maxFreq]^2 such that j + k + l = [0,0]
+	for i = 1:2
+		while abs(j[i]) > maxFreq || abs(k[i]) > maxFreq || abs(l[i]) > maxFreq
+			a = sort(rand(0:3*maxFreq, 2))
+			j[i] = a[1] - maxFreq
+			k[i] = a[2] - a[1] - maxFreq
+			l[i] = 3*maxFreq - a[2] - maxFreq
+		end
+	end
+	return j,k,l
 end
 
 
@@ -53,7 +140,7 @@ function animateAll(folder, lims, framerate)
 
 		plot(title, p1, p2, p3, layout=@layout([A{0.05h}; [B C D]]), size=(1350, 550))
 	end
-	gif(anim, folder*"all.gif", fps = framerate)
+	mp4(anim, folder*"all.mp4", fps = framerate)
 
 end
 

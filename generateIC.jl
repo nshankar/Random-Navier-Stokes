@@ -9,18 +9,15 @@ function gauss(i,j,center, var, coef)
 end
 
 function generateIC()
-	filename = "initialConditions/testIC.csv"
+	filename = "initialConditions/vortexPairHighRes.csv"
 
-	centers = [[6,6], [20, 30], [44, 15]]
-	coefs = [3, 5, -4]
-	vars = [1, 10, 4]
 
-	N = 5 # Require N odd (for now)
-	q(i,j) = gauss(i,j, centers[1], vars[1], coefs[1]) +
-			+ gauss(i,j, centers[2], vars[2],coefs[2]) +
-			+ gauss(i,j, centers[3], vars[3], coefs[3])
+	N = 201 # Require N odd (for now)
+	q(i,j) = gauss(i,j, [90.5, 40.5], 20, -5) + gauss(i,j, [110.5, 40.5], 20, 5) + 
+		+ gauss(i,j, [90.5, 160.5], 20, 5) + gauss(i,j, [110.5, 160.5], 20, -5)
 
 	ICReal = Array{Float64}(undef,(N,N))
+
 	for i=1:N
 		for j=1:N
 			ICReal[i,j] = q(i,j)

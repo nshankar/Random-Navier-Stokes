@@ -24,11 +24,11 @@ include("helpers/animations.jl")
 function start()
 	# Options
 	h = 1e-3							# Draws time steps from from Exp(h)		
-	ncycles = 20						# Number of times to cycle through all of the triples,
+	ncycles = 30							# Number of times to cycle through all of the triples,
 										# Each cycle is roughly N^4 ODE calls assuming an N×N grid
 
-	fileIC = "initialConditions/testIC.csv"
-	folder = "output/test/"			
+	fileIC = "initialConditions/gaussianIC.csv"
+	folder = "output/enstrophyDemo/"			
 
 	# passive scalars currently not supported
 	passiveScalars = false
@@ -44,8 +44,9 @@ function start()
 	# Important for plotting behavior
 	ENV["GKSwstype"]="nul"
 	# Plotting
-	animateVorticity(folder, (-5, 5), 10)
-	animateAll(folder, [(-5, 5), (0, 5)], 10)
+	#animateVorticity(folder, (-5, 5), 12)
+	animateVorticityAndEnstrophy(folder, (-5,5), 6, 1000)
+	#animateAll(folder, [(-5, 5), (0, 5)], 10)
 
 	println("All Done!")
 end
