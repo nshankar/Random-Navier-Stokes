@@ -24,11 +24,11 @@ include("helpers/animations.jl")
 function start()
 	# Options
 	h = 5e-5							# Draws time steps from from Exp(h)		
-	ncycles = 10						# Number of times to cycle through all of the triples,
+	ncycles = 30						# Number of times to cycle through all of the triples,
 										# Each cycle is roughly N^4 ODE calls assuming an N×N grid
 
-	fileIC = "initialConditions/gaussiansMidRes.csv"
-	folder = "output/test/"			
+	fileIC = "initialConditions/gaussianIC.csv"
+	folder = "output/gaussiansMedRes_200cycles/"			
 
 	# passive scalars currently not supported
 	passiveScalars = false
@@ -36,17 +36,17 @@ function start()
 					 2.5 3.;
 					 5. 5.]	
 
-	computeVorticityFreq(h, Int(ncycles), fileIC, folder)
-	computeVorticity(folder)
+	#computeVorticityFreq(h, Int(ncycles), fileIC, folder)
+	#computeVorticity(folder)
 	#computeVelocity(10, passiveScalars, scalarsCoords, folder)
 
 
 	# Important for plotting behavior
 	ENV["GKSwstype"]="nul"
 	# Plotting
-	animateVorticity(folder, (-5, 5), 12)
-	#animateVorticityAndEnstrophy(folder, (-5,5), 6, 1000)
-	#animateAll(folder, [(-5, 5), (0, 5)], 10)
+	#animateVorticity(folder, (-5, 5), 12)
+	animateVorticityAndEModes(folder, (-10, 10), 12, "Enstrophy", true)
+	animateVorticityAndEModes(folder, (-10, 10), 12, "Energy", true)
 
 	println("All Done!")
 end

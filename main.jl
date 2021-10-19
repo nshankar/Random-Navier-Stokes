@@ -14,6 +14,8 @@ function computeVorticityFreq(h, ncycles, fileIC, folder)
 	writedlm(output, qhat, ',')
 
 	p = MVector{3,Float64}(0.,0.,0.)
+
+	println("Computing Vorticity Frequency:")
 	for m=1:ncycles
 		# Required for memory management
 		evolveIntegrator = getEvolveIntegrator()
@@ -30,6 +32,7 @@ function computeVorticityFreq(h, ncycles, fileIC, folder)
 
 		# save output once per cycle
 		writedlm(output, qhat, ',')
+		println(m) # keep count
 		# Enforce garbage collection
 		GC.gc()
 		sleep(0.001)

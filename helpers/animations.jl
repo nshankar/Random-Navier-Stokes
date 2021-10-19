@@ -17,6 +17,72 @@ function animateVorticity(folder, lims, framerate)
 end
 
 
+# Undergoing rapid changes
+function animateVorticityAndEModes(folder, lims, framerate, E, normalization)
+	h, N, ncycles, qData = getVorticityData(folder)
+	_, _, _, qhatData = getVorticityFreqData(folder)
+	grid = LinRange(0, 2*pi, N)
+
+	qtitlestring = Printf.@sprintf "Vorticity Field, h = %.1e, N = %i" h N
+	etitlestring = "Flow of "*E
+
+	plotdims = (500, 400)
+	combineddims = (1100, 500)
+
+	anim = @animate for i = 1:ncycles+1
+		q = @view qData[:,:,i]
+		qhat = @view qhatData[:,:,i]
+		p1 = heatmap(grid, grid, q,
+						c = :delta, clims=lims, aspect_ratio=1,
+						size=plotdims, title=qtitlestring, colorbar=false)
+
+		eVals = computeEVals(qhat, E, normalization)
+		modifiedEVals = log.(ones(length(eVals)) + eVals)
+		
+		p2 = bar(modifiedEVals, size=plotdims, title=etitlestring,
+					xlabel="log|r|", ylabel="log(1+E_r)", legend=false)
+		plot(p1, p2, layout=@layout([A B]), size= combineddims, margin=5Plots.mm)
+	end
+	mp4(anim, folder*"LogLog"*E*"Modes.mp4", fps = framerate)
+
+end
+
+function computeEVals(qhat, E, normalization)
+	N = size(qhat)[2]
+	maxFreq = Int((N-1)/2)
+	scale = 1 + Int(floor(log(1.5, sqrt(2)*maxFreq)))
+	eVals = zeros(scale)
+	counts = zeros(scale)
+	for i=-maxFreq:maxFreq
+		for j=-maxFreq:maxFreq
+			if i == j == 0
+				continue
+			end
+			index = 1 + Int(floor(log(1.5, sqrt(i^2+j^2))))
+			if E == "Enstrophy"
+				eVals[index] = eVals[index] + abs2(getFourierCoef(qhat, [i,j]))
+			elseif E == "Energy"
+				eVals[index] = eVals[index] + abs2(getFourierCoef(qhat, [i,j]))/(i^2 + j^2)
+			else
+				return zeros(scale)
+			end
+			counts[index] = counts[index] + 1
+		end
+	end
+
+
+	if normalization == true
+		for i=1:length(counts)
+			if counts[i] == 0
+				counts[i] = 1
+			end
+		end
+		return eVals./counts
+	end
+	return eVals
+end
+
+
 # This is a temporary solution, but not particularly efficient
 function animateVorticityAndEnstrophy(folder, lims, framerate, n_samples)
 	h, N, ncycles, qData = getVorticityData(folder)
