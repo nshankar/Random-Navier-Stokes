@@ -16,19 +16,27 @@ include("helpers/fourierIndexHandling.jl")
 
 # For animation
 using Plots
+using StatsPlots
+using LaTeXStrings
 using ColorSchemes
 using Printf
 include("helpers/animations.jl")
 
 
 function start()
+	#Plotting settings
+	Plots.scalefontsizes()
+	Plots.scalefontsizes(1.2)
+	ENV["GKSwstype"]="nul"
+
+
 	# Options
 	h = 5e-5							# Draws time steps from from Exp(h)		
-	ncycles = 500						# Number of times to cycle through all of the triples,
+	ncycles = 10						# Number of times to cycle through all of the triples,
 										# Each cycle is roughly N^4 ODE calls assuming an N×N grid
 
 	fileIC = "initialConditions/vortexPair.csv"
-	folder = "output/vortexPair/"			
+	folder = "output/gaussiansMedRes_400cycles/"			
 
 	# passive scalars currently not supported
 	passiveScalars = false
@@ -36,17 +44,15 @@ function start()
 					 2.5 3.;
 					 5. 5.]	
 
-	computeVorticityFreq(h, Int(ncycles), fileIC, folder)
-	computeVorticity(folder)
+	#computeVorticityFreq(h, Int(ncycles), fileIC, folder)
+	#computeVorticity(folder)
 	#computeVelocity(10, passiveScalars, scalarsCoords, folder)
 
 
-	# Important for plotting behavior
-	ENV["GKSwstype"]="nul"
 	# Plotting
-	animateVorticity(folder, (-5, 5), 24)
-	#animateVorticityAndEModes(folder, (-10, 10), 24, "Enstrophy", true)
-	#animateVorticityAndEModes(folder, (-10, 10), 24, "Energy", true)
+	#animateVorticity(folder, (-5, 5), 24)
+	#animateLogLogEModes(folder, (-5, 5), 24)
+	animateLogEModes(folder, (-5, 5), 24)
 
 	println("All Done!")
 end

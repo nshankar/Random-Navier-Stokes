@@ -1,6 +1,8 @@
 # requires Random
 # requires Plots
 # requires Printf
+# requires StatsPlots
+# requires LaTeXStrings
 
 function animateVorticity(folder, lims, framerate)
 	h, N, ncycles, data = getVorticityData(folder)
@@ -18,39 +20,76 @@ end
 
 
 # Undergoing rapid changes
-function animateVorticityAndEModes(folder, lims, framerate, E, normalization)
+function animateLogLogEModes(folder, lims, framerate)
 	h, N, ncycles, qData = getVorticityData(folder)
 	_, _, _, qhatData = getVorticityFreqData(folder)
 	grid = LinRange(0, 2*pi, N)
 
-	qtitlestring = Printf.@sprintf "Vorticity Field, h = %.1e, N = %i" h N
-	etitlestring = "Flow of "*E
-
-	plotdims = (500, 400)
-	combineddims = (1100, 500)
+	qtitlestring = L"\textrm{Vorticity\ Field\ }^{^{}} (h=5 \times 10^{-5})"
+	etitlestring = L"\textrm{Flow\ of\ Enstrophy\ &\ Energy}^{^{} }"
+	
+	plotdims = (500, 500)
+	combineddims = (1100, 550)
 
 	anim = @animate for i = 1:ncycles+1
 		q = @view qData[:,:,i]
 		qhat = @view qhatData[:,:,i]
-		p1 = heatmap(grid, grid, q,
+		p1 = heatmap(grid, grid, q, xticks=(0:pi:2*pi, [L"0" L"\pi" L"2\pi"]), yticks=(0:pi:2*pi, [L"0" L"\pi" L"2\pi"]),
 						c = :delta, clims=lims, aspect_ratio=1,
 						size=plotdims, title=qtitlestring, colorbar=false)
 
-		eVals = computeEVals(qhat, E, normalization)
-		modifiedEVals = log.(ones(length(eVals)) + eVals)
+		logEnergy = computeEVals(qhat, "Energy", true)
+		logEnstrophy = computeEVals(qhat, "Enstrophy", true)
 		
-		p2 = bar(modifiedEVals, size=plotdims, title=etitlestring,
-					xlabel="log|r|", ylabel="log(1+E_r)", legend=false)
-		plot(p1, p2, layout=@layout([A B]), size= combineddims, margin=5Plots.mm)
+		p2 = groupedbar([logEnstrophy logEnergy], size=plotdims, title=etitlestring,
+					xlabel=L"\log_{3/2}(r)", ylabel=L"\log(1+\overline{E}_r)", xlims=(0,), ylims = (0,18),
+					xticks=(0:2:10, [L"0" L"2" L"4" L"6" L"8" L"10"]), yticks=(0:5:15, [L"0" L"5" L"10" L"15"]),
+					legend=true, labels=[L"\textrm{Enstrophy}" L"\textrm{Energy}"])
+		plot(p1, p2, layout=@layout([A B]), size= combineddims, top_margin=5Plots.mm, bottom_margin=5Plots.mm)
 	end
-	mp4(anim, folder*"LogLog"*E*"Modes.mp4", fps = framerate)
-
+	mp4(anim, folder*"LogLogEModes.mp4", fps = framerate)
 end
 
-function computeEVals(qhat, E, normalization)
+function animateLogEModes(folder, lims, framerate)
+	h, N, ncycles, qData = getVorticityData(folder)
+	_, _, _, qhatData = getVorticityFreqData(folder)
+	grid = LinRange(0, 2*pi, N)
+
+	qtitlestring = L"\textrm{Vorticity\ Field\ }^{^{}} (h=5 \times 10^{-5})"
+	etitlestring = L"\textrm{Flow\ of\ Enstrophy\ &\ Energy}^{^{} }"
+	
+	plotdims = (500, 500)
+	combineddims = (1100, 550)
+
+	anim = @animate for i = 1:ncycles+1
+		q = @view qData[:,:,i]
+		qhat = @view qhatData[:,:,i]
+		p1 = heatmap(grid, grid, q, xticks=(0:pi:2*pi, [L"0" L"\pi" L"2\pi"]), yticks=(0:pi:2*pi, [L"0" L"\pi" L"2\pi"]),
+						c = :delta, clims=lims, aspect_ratio=1,
+						size=plotdims, title=qtitlestring, colorbar=false)
+
+		logEnergy = computeEVals(qhat, "Energy", false)
+		logEnstrophy = computeEVals(qhat, "Enstrophy", false)
+		
+		p2 = groupedbar([logEnstrophy logEnergy], size=plotdims, title=etitlestring,
+					xlabel=L"r", ylabel=L"\log(1+\overline{E}_r)", xlims=(0,70), ylims = (0,18),
+					xticks=(0:20:70, [L"0" L"20" L"40" L"60"]), yticks=(0:5:15, [L"0" L"5" L"10" L"15"]),
+					legend=true, labels=[L"\textrm{Enstrophy}" L"\textrm{Energy}"])
+		plot(p1, p2, layout=@layout([A B]), size= combineddims, top_margin=5Plots.mm, bottom_margin=5Plots.mm)
+	end
+	mp4(anim, folder*"LogEModes.mp4", fps = framerate)
+end
+
+
+function computeEVals(qhat, E, loglog)
 	N = size(qhat)[2]
 	maxFreq = Int((N-1)/2)
-	scale = 1 + Int(floor(log(1.5, sqrt(2)*maxFreq)))
+	if loglog
+		scale = 1 + Int(floor(log(1.5, sqrt(2)*maxFreq)))
+	else
+		scale = Int(floor(sqrt(2)*maxFreq))
+	end
+
 	eVals = zeros(scale)
 	counts = zeros(scale)
 	for i=-maxFreq:maxFreq
@@ -58,7 +97,12 @@ function computeEVals(qhat, E, normalization)
 			if i == j == 0
 				continue
 			end
-			index = 1 + Int(floor(log(1.5, sqrt(i^2+j^2))))
+			if loglog
+				index = 1 + Int(floor(log(1.5, sqrt(i^2+j^2))))
+			else
+				index = Int(floor(sqrt(i^2+j^2)))
+			end
+
 			if E == "Enstrophy"
 				eVals[index] = eVals[index] + abs2(getFourierCoef(qhat, [i,j]))
 			elseif E == "Energy"
@@ -71,16 +115,15 @@ function computeEVals(qhat, E, normalization)
 	end
 
 
-	if normalization == true
-		for i=1:length(counts)
-			if counts[i] == 0
-				counts[i] = 1
-			end
+	for i=1:length(counts)
+		if counts[i] == 0
+			counts[i] = 1
 		end
-		return eVals./counts
 	end
-	return eVals
+	return log.(ones(scale) + eVals./counts)
 end
+
+
 
 
 # This is a temporary solution, but not particularly efficient
