@@ -1,6 +1,7 @@
 # Random-Navier-Stokes
 JuliaLang simulations and visualizations of random Navier Stokes equations
 
-Users should mainly run start.jl and animate.jl
+Use main.jl to call functions in helpers/mainComputations.jl and helpers/animations.jl
+Some editing in helpers/animations.jl may be required
 
-Organization and code cleanup in process
+Author: Nikhil Shankar

@@ -48,3 +48,15 @@ function randomTriple(triples)
 	end
 	return j, k, l
 end
+
+
+function myPrint(arr)
+	m,n = size(arr)
+	for i=1:m
+		for j=1:n
+			@printf "%.3e+%.3ei " real(arr[i,j]) imag(arr[i,j])
+		end
+		println()
+	end
+	println()
+end

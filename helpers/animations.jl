@@ -1,8 +1,13 @@
+# This list is not guaranteed to be comprehensive:
 # requires Random
 # requires Plots
 # requires Printf
 # requires StatsPlots
 # requires LaTeXStrings
+
+
+# These functions are good templates, but are not all purpose plotting tools.
+
 
 function animateVorticity(folder, lims, framerate)
 	h, N, ncycles, data = getVorticityData(folder)

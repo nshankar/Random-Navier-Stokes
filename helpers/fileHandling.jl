@@ -1,4 +1,6 @@
+# This list is not guaranteed to be comprehensive:
 # Requires DelimitedFiles
+# Requires FFTW
 
 # Read initial conditions
 function readIC(fileIC, typeIC)

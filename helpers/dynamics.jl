@@ -1,3 +1,4 @@
+# This list is not guaranteed to be comprehensive:
 # Requires OrdinaryDiffEq
 # Requires StaticArrays
 # Requires SciMLBase
@@ -72,10 +73,10 @@ function evolve!(integrator, qhat::Matrix{ComplexF64}, j::SVector{2,Int64},
 	ql = getFourierCoef(qhat, l)
 	q0 = SVector{3,ComplexF64}(qj, qk, ql)
 
+
 	SciMLBase.set_ut!(integrator, q0, 0.)
 	add_tstop!(integrator, t)
 	integrator.p = p
-
 	solve!(integrator)
 	qj, qk, ql = integrator.sol[end]
 
@@ -97,28 +98,30 @@ end
 
 function getEvolveIntegrator()
 	q0 = SVector{3,ComplexF64}(0.,0.,0.)
-	tspan = (0., 1)
+	tspan = (0., 0.01)
 	p = MVector{3,Float64}(0., 0., 0.)
 	prob = ODEProblem{false}(evolveODE, q0, tspan, p)
-	return init(prob, Tsit5(), save_everystep=false, maxiters = typemax(Int))
+	integrator = init(prob, Tsit5(), save_everystep=false, maxiters = typemax(Int))
+	solve!(integrator)
+	return integrator
 end
 
-function getFourierCoef(qhat, j)
-	N = size(qhat)[2]
+function getFourierCoef(fhat, j)
+	N = size(fhat)[2]
 	if j[1] >= 0
-		qj = qhat[j[1]+1, mod(j[2], N)+1]
+		fj = fhat[j[1]+1, mod(j[2], N)+1]
 	else
-		qj = conj(qhat[-j[1]+1, mod(-j[2], N)+1])
+		fj = conj(fhat[-j[1]+1, mod(-j[2], N)+1])
 	end
-	return qj
+	return fj
 end
 
-function setFourierCoef!(qhat, qj, j)
-	N = size(qhat)[2]
+function setFourierCoef!(fhat, fj, j)
+	N = size(fhat)[2]
 	if j[1] >= 0
-		qhat[j[1]+1, mod(j[2], N)+1] = qj
+		fhat[j[1]+1, mod(j[2], N)+1] = fj
 	else
-		qhat[-j[1]+1, mod(-j[2], N)+1] = conj(qj)
+		fhat[-j[1]+1, mod(-j[2], N)+1] = conj(fj)
 	end
 end
 
