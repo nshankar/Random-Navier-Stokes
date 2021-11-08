@@ -2,6 +2,7 @@
 # requires Random
 # requires Plots
 # requires Printf
+# requires ColorSchemes
 # requires StatsPlots
 # requires LaTeXStrings
 
