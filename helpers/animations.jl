@@ -8,6 +8,9 @@
 
 
 # These functions are good templates, but are not all purpose plotting tools.
+# Using them will require modification and tuning of parameters.
+# animateVorticity(...) is a good example of one possible workflow,
+# most functions in this file are a variation on animateVorticity(...).
 
 
 function animateVorticity(folder, lims, framerate)

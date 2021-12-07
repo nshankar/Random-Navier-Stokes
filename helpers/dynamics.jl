@@ -3,8 +3,11 @@
 # Requires StaticArrays
 # Requires SciMLBase
 
-# Uses vorticity coefficients (qhat) to derive velocity field and 
-# then interpolates with a quadratic periodic spline
+""" 
+    getItpVelocity(qhat)
+Use vorticity frequency coefficients qhat to derive a discrete velocity field. 
+Then interpolate the velocity values with a quadratic periodic spline.
+"""
 function getItpVelocity(qhat)
 	N = size(qhat)[2]
 	vel = biotSavart(qhat)
@@ -20,8 +23,12 @@ function getItpVelocity(qhat)
 	return U,V
 end
 
-# Computes velocity field from vorticity fourier coefs using Biot Savart Law
-# O(N^2 log(N))
+
+"""
+    biotSavart(qhat)
+Compute the discrete velocity field from vorticity fourier coefficients
+using Biot Savart Law, O(N^2 log(N)).
+"""
 function biotSavart(qhat)
 	N = size(qhat)[2]
 	maxFreq = Int((N-1)/2)
@@ -45,7 +52,12 @@ function biotSavart(qhat)
 	return vel
 end
 
-# Transport a passive scalar according to the velocity field defined by (U,V) for time t
+
+"""
+    transport(X, (U,V), t)
+Depreciated. Transport a passive scalar by the velocity field (U,V) for time t 
+where U,V = getItpVelocity(qhat).
+"""
 function transport(X, (U,V), t)
 	tspan = (0.0, t)
 	X_new = zeros(size(X))
@@ -58,6 +70,11 @@ function transport(X, (U,V), t)
 	return rem2pi.(X_new, RoundDown)
 end
 
+
+"""
+    transportODE!(dx, x, (U,V), t)
+Depreciated. ODE associated with transport(X, (U,V), t).
+"""
 function transportODE!(dx, x, (U,V), t)
 	x[1] = rem2pi(x[1], RoundDown)
 	x[2] = rem2pi(x[2], RoundDown)
@@ -65,7 +82,12 @@ function transportODE!(dx, x, (U,V), t)
 	dx[2] = V(x[1],x[2])
 end
 
-# Solves coupled ODE for time t
+
+"""
+    evolve!(integrator, qhat::Matrix{ComplexF64}, j::SVector{2,Int64}, 
+					k::SVector{2,Int64}, l::SVector{2,Int64}, t::Float64, p::MVector{3,Float64})
+Take the j,k,l Fourier coefficients and compute their dyanmics for time t. Speed is essential.
+"""
 function evolve!(integrator, qhat::Matrix{ComplexF64}, j::SVector{2,Int64}, 
 					k::SVector{2,Int64}, l::SVector{2,Int64}, t::Float64, p::MVector{3,Float64})
 	qj = getFourierCoef(qhat, j)
@@ -85,7 +107,12 @@ function evolve!(integrator, qhat::Matrix{ComplexF64}, j::SVector{2,Int64},
 	setFourierCoef!(qhat, ql, l)
 end
 
-# StaticArray Coupled ODE (Fast)
+
+"""
+    evolveODE(q0::SVector{3, ComplexF64}, p::MVector{3, Float64}, t::Float64)
+ODE associated with evolve!(...). Speed is essential. 
+Static vectors are faster than inplace calculation.
+"""
 function evolveODE(q0::SVector{3, ComplexF64}, p::MVector{3, Float64}, t::Float64)
 	C_jl, C_lk, C_kj = p
 	qj, qk, ql = q0
@@ -95,7 +122,12 @@ function evolveODE(q0::SVector{3, ComplexF64}, p::MVector{3, Float64}, t::Float6
 	return @SVector [dqj, dqk, dql]
 end
 
-
+"""
+    getEvolveIntegrator()
+Return integrator object initialized to solve evolveODE(...). 
+Advantage: the ODE will be initialized infrequently. 
+Disadvantage: the integrator appears to cause memory issues.
+"""
 function getEvolveIntegrator()
 	q0 = SVector{3,ComplexF64}(0.,0.,0.)
 	tspan = (0., 0.01)
@@ -106,26 +138,11 @@ function getEvolveIntegrator()
 	return integrator
 end
 
-function getFourierCoef(fhat, j)
-	N = size(fhat)[2]
-	if j[1] >= 0
-		fj = fhat[j[1]+1, mod(j[2], N)+1]
-	else
-		fj = conj(fhat[-j[1]+1, mod(-j[2], N)+1])
-	end
-	return fj
-end
 
-function setFourierCoef!(fhat, fj, j)
-	N = size(fhat)[2]
-	if j[1] >= 0
-		fhat[j[1]+1, mod(j[2], N)+1] = fj
-	else
-		fhat[-j[1]+1, mod(-j[2], N)+1] = conj(fj)
-	end
-end
-
-# Returns C_{l,j}
+"""
+    couplingCoef(l, j)
+Compute and return C_{l,j}
+"""
 function couplingCoef(l, j)
 	if isNonZero(l) && isNonZero(j)
 		return (-j[2]*l[1] + j[1]*l[2])/(4*pi) * (1/norm2(l) - 1/norm2(j))
@@ -150,3 +167,25 @@ function perp(x)
 	x[1], x[2] = -x[2], x[1]
 	return x
 end
+
+
+#= moved to fourierIndexHandling.jl
+function getFourierCoef(fhat, j)
+	N = size(fhat)[2]
+	if j[1] >= 0
+		fj = fhat[j[1]+1, mod(j[2], N)+1]
+	else
+		fj = conj(fhat[-j[1]+1, mod(-j[2], N)+1])
+	end
+	return fj
+end
+
+function setFourierCoef!(fhat, fj, j)
+	N = size(fhat)[2]
+	if j[1] >= 0
+		fhat[j[1]+1, mod(j[2], N)+1] = fj
+	else
+		fhat[-j[1]+1, mod(-j[2], N)+1] = conj(fj)
+	end
+end
+=#

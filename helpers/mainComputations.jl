@@ -1,7 +1,10 @@
-# Workhorse function, takes initial conditions and computes dynamics
+"""
+    computeVorticityFreq(h, ncycles, fileIC, folder)
+Compute Euler dynamics given initial conditions. Workhorse function.
+"""
 function computeVorticityFreq(h, ncycles, fileIC, folder)
 	# Read input
-	qhat, maxFreq, vel = readIC(fileIC, "vorticityFreq")
+	qhat, maxFreq, _ = readIC(fileIC, "vorticityFreq")
 
 	# Prepare random triples
 	triples = computeTriples(maxFreq)
@@ -44,14 +47,18 @@ function computeVorticityFreq(h, ncycles, fileIC, folder)
 end
 
 
-#Prototype, ideally will be merged with computeVorticityFreq
+"""
+    computeVorticityFreqWithViscosity(h, ncycles, fileIC, folder, lambda = ((k1,k2)-> k1^2 +k2^2), f = ((k1,k2) -> 1))
+Compute Navier-Stokes dynamics given initial conditions. To be merged with computeVorticityFreq().
+"""
 function computeVorticityFreqWithViscosity(h, ncycles, fileIC, folder, lambda = ((k1,k2)-> k1^2 +k2^2), f = ((k1,k2) -> 1))
 	# Read input
-	qhat, maxFreq, vel = readIC(fileIC, "vorticityFreq")
+	qhat, maxFreq, _ = readIC(fileIC, "vorticityFreq")
 
 	# Prepare random triples
 	triples = computeTriples(maxFreq)
 	N = 2*maxFreq+1
+
 	cycle = randcycle(length(triples)^2)
 
 	# Prepare output file
@@ -108,8 +115,10 @@ function computeVorticityFreqWithViscosity(h, ncycles, fileIC, folder, lambda = 
 end
 
 
-
-# Given vorticity frequencies in folder, computes the vorticity
+"""
+    computeVorticity(folder)
+Compute vorticity given location of vorticity frequencies via the inverse Fourier transform.
+"""
 function computeVorticity(folder)
 	h, N, ncycles, data = getVorticityFreqData(folder)
 	output = open(folder*"vorticity.dat","w")
@@ -122,8 +131,11 @@ function computeVorticity(folder)
 	close(output)
 end
 
-# Given vorticity frequencies in folder, compute the velocity and write to fileoutput
-# For now passive scalars are not supported
+
+"""
+    computeVelocity(gridSize, passiveScalars, scalarsCoords, folder)
+Depreciated. Compute velocity given location of vorticity frequencies via Biot-Savart law. Propagate passive scalers.
+"""
 function computeVelocity(gridSize, passiveScalars, scalarsCoords, folder)
 	h, N, ncycles, data = getVorticityFreqData(folder)
 	output = open(folder*"velocity.dat","w")

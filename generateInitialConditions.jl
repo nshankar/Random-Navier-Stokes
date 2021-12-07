@@ -1,5 +1,3 @@
-# Select Fourier coefficients for the vorticity qhat in the domain [0, N//2] x [-N//2, N//2] and a resolution N
-# Generates a csv file which can be used as input for main.jl
 using DelimitedFiles
 using FFTW
 
@@ -8,18 +6,20 @@ function gauss(i,j,center, var, coef)
 
 end
 
+"""
+Modify as needed to generate a csv file which can be used as input for main.jl.
+A possible workflow:
+1. Define a function q(i,j) on [0,N]^2
+2. Write values of q(i,j) into an array and take a real Fourier transform
+3. Set the (0,0)th coefficient to be 0 (corresponds to the (1,1)th index)
+4. Write Fourier data to output file
+"""
 function generateIC()
 	filename = "initialConditions/vortexPair.csv"
 
 
-	N = 101 # Require N odd
+	N = 51 # Require N odd
 	q(i,j) = gauss(i,j, [10, 10], 2^2, -6) + gauss(i,j, [65, 40], 10^2, -4) + gauss(i,j, [20, 80], 5^2, 8)
-
-	#a = 35.5
-	#b = 14.5
-	#var = 6^2
-	#q(i,j) = gauss(i,j, [a, b], var, -5) + gauss(i,j, [N-a, b], var, 5) + 
-	#		+ gauss(i,j, [a, N-b], var, 5) + gauss(i,j, [N-a, N-b], var, -5)
 
 	ICReal = Array{Float64}(undef,(N,N))
 
@@ -33,17 +33,7 @@ function generateIC()
 	IC = rfft(ICReal)
 	IC[1,1] = 0
 
-	#=
-	maxFreq = Int((N-1)/2)
-	IC = Array{ComplexF64}(undef, (Int((N+1)/2), N))
 
-	for i=0:maxFreq
-		for j=-maxFreq:maxFreq
-			IC[i + 1, mod(j, N) + 1] = qhat(i, j)
-		end
-	end
-	IC[1,1] = 0
-	=#
 
 	writedlm(filename,  IC, ',')
 end

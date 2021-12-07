@@ -17,19 +17,18 @@ using LaTeXStrings
 using ColorSchemes
 using Printf
 
-# Helper functions
+# Helpers
 include("helpers/fileHandling.jl")
 include("helpers/mainComputations.jl")
 include("helpers/dynamics.jl")
 include("helpers/fourierIndexHandling.jl")
 include("helpers/animations.jl")
 
-function start()
-	# comment out as needed
+function main()
 	Random.seed!(43)
 
 
-	#Plotting settings
+	# Plotting settings
 	Plots.scalefontsizes()
 	Plots.scalefontsizes(1.2)
 	ENV["GKSwstype"]="nul" # turns off plotting window
@@ -37,17 +36,19 @@ function start()
 
 	# Options
 	h = 5e-5							# Draws time steps from from Exp(h)		
-	ncycles = Int(5)					# Number of times to cycle through all of the triples,
-										# Each cycle is ~D^2 ODE calls assuming input size D
+	ncycles = Int(1)					# Number of times to cycle through all of the triples,
+											# Each cycle is ~D^2 ODE calls assuming input size D
 
-	fileIC = "initialConditions/gaussianIC.csv"
+	fileIC = "initialConditions/vortexPair.csv"
 	folder = "output/test/"
 
-	N = 101
-	lambda(k1, k2) = Int((k1^2 + k2^2)*((abs(k1) <= 4 && abs(k2) <= 4) || (abs(k1) >= N//2-4 || abs(k2)>= N//2 -4)))
-	f(k1, k2) = Int(abs(k1) <= 4 && abs(k2) <= 4)
+	
+	lambda(k1, k2) = k1^2 + k2^2
+	f(k1, k2) = 1
+	
+	# Computations
 	computeVorticityFreqWithViscosity(h, ncycles, fileIC, folder, lambda, f)
-	#computeVorticityFreq(h, ncycles, fileIC, folder)
+	computeVorticityFreq(h, ncycles, fileIC, folder)
 	computeVorticity(folder)
 
 	# Plotting
@@ -58,4 +59,4 @@ function start()
 	println("All Done!")
 end
 
-start()
+main()

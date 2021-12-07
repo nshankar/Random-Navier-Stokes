@@ -1,3 +1,32 @@
+"""
+    computeTriples(N)
+Return dictionary of all integer triples a,b,c in [-N,N] such that a+b+c=0
+"""
+function computeTriples(N)
+	# Consider an array or immutable dict for better space/time efficiency
+	triples = Dict{Int64, Tuple{Int64,Int64,Int64}}()
+	counter = 1
+
+	# Consider storing j,k,l in increasing order to save 6x space
+	for j = -N:N
+		for k = -N:N
+			l = - j - k
+			if -N <= l <= N
+				triples[counter] = (j,k,l)
+				counter += 1
+			end
+		end
+	end
+	return triples
+end
+
+
+"""
+    cyclicTriple(triples, cycle, ind)
+For each ind in [1, len(triples)^2], return a unique value of j,k,l in [-N,N]^2 such that j+k+l=(0,0).
+The order of the values is determined by cycle, a permutation of length len(triples)^2.
+Note: if ind is outside [1, len(triples)^2], it is mapped to its equivalence class in the range.
+"""
 function cyclicTriple(triples, cycle, ind)
 	M = length(triples)
 	q_, r_ = divrem(cycle[ind] - 1, M)
@@ -12,28 +41,10 @@ function cyclicTriple(triples, cycle, ind)
 end
 
 
-
-# Compute a dict of all triples j,k,l in [-N,N] such that j+k+l=0
-function computeTriples(N)
-	# Consider an immutable dict for speed
-	triples = Dict{Int64, Tuple{Int64,Int64,Int64}}()
-	counter = 1
-
-	# Consider storing j,k,l in increasing order to save 6x space and some time
-	for j = -N:N
-		for k = -N:N
-			l = - j - k
-			if -N <= l <= N
-				triples[counter] = (j,k,l)
-				counter += 1
-			end
-		end
-	end
-	return triples
-end
-
-
-# Uniformly at random selects j,k,l in [-N, N]^2 such that j+k+l=(0,0)
+"""
+    randomTriple(triples)
+Uniformly at random selects j,k,l in [-N, N]^2 such that j+k+l=(0,0)
+"""
 function randomTriple(triples)
 	j = Array{Int64}(undef, 2)
 	k = Array{Int64}(undef, 2)
@@ -50,6 +61,38 @@ function randomTriple(triples)
 end
 
 
+"""
+    getFourierCoef(fhat, j)
+Given fhat, a reduced real Fourier transform matrix, 
+return the jth Fourier coefficient for any j in [-N,N]^2
+"""
+function getFourierCoef(fhat, j)
+	N = size(fhat)[2]
+	if j[1] >= 0
+		fj = fhat[j[1]+1, mod(j[2], N)+1]
+	else
+		fj = conj(fhat[-j[1]+1, mod(-j[2], N)+1])
+	end
+	return fj
+end
+
+
+"""
+    setFourierCoef!(fhat, fj, j)
+Given fhat, a reduced real Fourier transform matrix, 
+set the jth Fourier coefficient to fj for any j in [-N,N]^2
+"""
+function setFourierCoef!(fhat, fj, j)
+	N = size(fhat)[2]
+	if j[1] >= 0
+		fhat[j[1]+1, mod(j[2], N)+1] = fj
+	else
+		fhat[-j[1]+1, mod(-j[2], N)+1] = conj(fj)
+	end
+end
+
+
+#=
 function myPrint(arr)
 	m,n = size(arr)
 	for i=1:m
@@ -60,3 +103,4 @@ function myPrint(arr)
 	end
 	println()
 end
+=#
